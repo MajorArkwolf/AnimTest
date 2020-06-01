@@ -37,8 +37,11 @@ class Mesh {
 
     void AddBoneData(unsigned int VectorID, unsigned int BoneID, float Weight);
 
+    void SendMeshToGPU();
+
   private:
     /// Buffer ID's.
     unsigned int VBO = 0, EBO = 0;
+
 
 };

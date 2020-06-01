@@ -5,7 +5,9 @@ using Controller::Input::BLUE_InputAction;
 using Controller::Input::BLUE_InputType;
 
 Scene::Scene() {
-    camera.Position.y = 50.0;
+    camera.Position.y = 10.0;
+    camera.Position.z = -10.0;
+    camera.Position.x = -30.0;
 //    this->tLoader.loadMaterialTextures("dirt.jpg");
 //    this->tLoader.loadMaterialTextures("grass2.png");
 //    auto list = this->tLoader.getTextureList();

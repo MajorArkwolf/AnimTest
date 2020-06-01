@@ -3,6 +3,7 @@
 
 #include "View/Renderer/Shader.hpp"
 #include <glm/gtc/quaternion.hpp>
+#include "Controller/Animator.hpp"
 
 namespace Model {
     class MovingModel {
@@ -11,8 +12,8 @@ namespace Model {
         void Draw(glm::mat4 projection, glm::mat4 view);
         void Update(double t, double dt);
         glm::vec3 position = glm::vec3(0, 0, 0);
-        //Model model = Model("res/model/badboy.fbx", false);
         size_t modelID = 0;
+        std::shared_ptr<Controller::Animator> anim = nullptr;
       private:
         void SetRotation(glm::vec3 &orig, glm::vec3 &dest);
         std::vector<glm::mat4> transforms = {};

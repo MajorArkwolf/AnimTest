@@ -10,4 +10,5 @@ class ModelManager {
     static void Draw(size_t id, Shader *ourShader);
 
     friend class ResourceManager;
+    static Model::Model& GetModel(size_t index);
 };

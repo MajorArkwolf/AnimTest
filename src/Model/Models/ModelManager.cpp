@@ -14,6 +14,10 @@ auto ModelManager::GetModelID(const std::string& filename) -> size_t {
     }
 }
 
+auto ModelManager::GetModel(size_t index) -> Model::Model& {
+    return ModelRepo().at(index);
+}
+
 void ModelManager::Draw(size_t id, Shader *ourShader) {
     ModelRepo().at(id).Draw(*ourShader);
 }

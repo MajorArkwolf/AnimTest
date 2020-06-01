@@ -23,12 +23,7 @@ void main()
 		bone_transform += jointTransforms[aJointID[2]] * aJointWeights[2];
 		bone_transform += jointTransforms[aJointID[3]] * aJointWeights[3];
 
-    vec4 boned_position;
-	if (animated == true) {
-	    boned_position = bone_transform * vec4(aPos, 1.0);
-	} else {
-	    boned_position = vec4(aPos, 1.0);
-	}
+    vec4 boned_position = bone_transform * vec4(aPos, 1.0);
 
     TexCoords = aTexCoords;
     gl_Position = projection * view * model * boned_position;

@@ -10,6 +10,8 @@
 
 #include "Mesh.hpp"
 #include "View/Renderer/Shader.hpp"
+#include "Model/Models/Joint.hpp"
+#include "Model/Models/Animation.hpp"
 namespace Model {
     class Model {
       public:
@@ -25,6 +27,8 @@ namespace Model {
         std::map<std::string, unsigned int> boneMapping = {};
         glm::mat4 globalInverseTransform = {};
         int numBones = 0;
+        std::shared_ptr<Joint> rootJoint = nullptr;
+        std::vector<Animation> animationList = {};
 
         /**
          * Constructor for the model.
@@ -44,6 +48,8 @@ namespace Model {
          * @param shader used to draw the model.
          */
         void Draw(Shader& shader);
+
+        std::vector<glm::mat4> getJointTransforms();
 
       private:
         /**
@@ -69,5 +75,10 @@ namespace Model {
                                                   const std::string& typeName);
 
         void LoadBones(unsigned int MeshIndex, const aiMesh *pMesh);
+        void LoadJoints(aiMesh *mesh, const aiScene *scene);
+        Joint RecurseJoints(aiNode* parent, const aiScene *scene);
+        void LoadAnimation(const aiScene *scene);
+        void addJointsToArray(Joint &headJoint, std::vector<glm::mat4> &jointMatrices);
+
     };
 }

@@ -12,11 +12,14 @@ Mesh::Mesh(std::vector<Vertex> newVertices, std::vector<unsigned int> newIndices
     this->vertices = std::move(newVertices);
     this->indices  = std::move(newIndices);
     this->textures = std::move(newTextures);
-    View::OpenGL::SetupMesh(VAO, VBO, EBO, this->vertices, this->indices);
 }
 
 void Mesh::Draw(Shader& shader) {
     View::OpenGL::DrawModel(shader, VAO, textures, indices);
+}
+
+void Mesh::SendMeshToGPU() {
+    View::OpenGL::SetupMesh(VAO, VBO, EBO, this->vertices, this->indices);
 }
 
 void Mesh::AddBoneData(unsigned VectorID, unsigned BoneID, float Weight) {

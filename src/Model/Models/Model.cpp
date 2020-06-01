@@ -39,9 +39,15 @@ void Model::Model::loadModel(string const &path) {
     }
     // retrieve the directory path of the filepath
     directory = path.substr(0, path.find_last_of('/'));
-
+    globalInverseTransform = glm::inverse(mat4_cast(scene->mRootNode->mTransformation));
     // process ASSIMP's root node recursively
     processNode(scene->mRootNode, scene);
+    LoadAnimation(scene);
+    glm::mat4 temp(1.0f);
+    rootJoint->calcInverseBindTransform(temp);
+    for (auto &mesh : meshes) {
+        mesh.SendMeshToGPU();
+    }
 }
 
 void Model::Model::processNode(aiNode *node, const aiScene *scene) {
@@ -52,6 +58,7 @@ void Model::Model::processNode(aiNode *node, const aiScene *scene) {
         aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
         meshes.push_back(processMesh(mesh, scene));
         LoadBones(i, mesh);
+        LoadJoints(mesh, scene);
     }
     // after we've processed all of the meshes (if any) we then recursively process each of the children nodes
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
@@ -200,5 +207,64 @@ void Model::Model::LoadBones(unsigned MeshIndex, const aiMesh* pMesh)
             float Weight = pMesh->mBones[i]->mWeights[j].mWeight;
             meshes.at(MeshIndex).AddBoneData(VertexID, boneIndex, Weight);
         }
+    }
+}
+
+void Model::Model::LoadJoints(aiMesh *mesh, const aiScene *scene) {
+    if (mesh->HasBones()) {
+        auto rootBone = scene->mRootNode->FindNode(mesh->mBones[0]->mName);
+        rootJoint = std::make_shared<Joint>(RecurseJoints(rootBone, scene));
+    }
+}
+
+Model::Joint Model::Model::RecurseJoints(aiNode* parent, const aiScene *scene) {
+    auto index = boneMapping[parent->mName.C_Str()];
+    auto parentJoint = Joint(index, parent->mName.C_Str(), mat4_cast(parent->mTransformation));
+    for (size_t i = 0; i < parent->mNumChildren; ++i) {
+        parentJoint.children.push_back(RecurseJoints(parent->mChildren[i], scene));
+    }
+    return parentJoint;
+}
+
+static inline void InsertKeyFrame(std::vector<Model::KeyFrame>& keyFrames, Model::JointTransform j, const std::string& name, double time) {
+    for (auto &k : keyFrames) {
+        if (k.timeStamp == time) {
+            k.pose.emplace(name, j);
+            return;
+        }
+    }
+    Model::KeyFrame key(time);
+    key.pose.emplace(name, j);
+    keyFrames.push_back(key);
+}
+
+void Model::Model::LoadAnimation(const aiScene *scene) {
+    if (scene->HasAnimations()) {
+        for (size_t x = 0; x < scene->mNumAnimations; ++x) {
+            auto anim = scene->mAnimations[x];
+            std::vector<KeyFrame> keyFrames = {};
+            for (size_t i = 0; i < anim->mNumChannels; ++i) {
+                assert(anim->mChannels[i]->mNumPositionKeys == anim->mChannels[i]->mNumRotationKeys);
+                for (size_t ii = 0; ii < anim->mChannels[i]->mNumPositionKeys; ++ii) {
+                    auto j = JointTransform(vec3_cast(anim->mChannels[i]->mPositionKeys[ii].mValue), quat_cast(anim->mChannels[i]->mRotationKeys[ii].mValue));
+                    InsertKeyFrame(keyFrames, j, anim->mChannels[i]->mNodeName.C_Str(), anim->mChannels[i]->mPositionKeys[ii].mTime);
+                }
+            }
+            animationList.emplace_back(anim->mDuration * anim->mTicksPerSecond, keyFrames);
+        }
+    }
+}
+
+std::vector<glm::mat4> Model::Model::getJointTransforms() {
+    std::vector<glm::mat4> jointMatrices = {};
+    jointMatrices.resize(50);
+    addJointsToArray(*rootJoint, jointMatrices);
+    return jointMatrices;
+}
+
+void Model::Model::addJointsToArray(Joint& headJoint, std::vector<glm::mat4>& jointMatrices) {
+    jointMatrices[headJoint.index] = headJoint.getAnimatedTransform();
+    for (Joint& childJoint : headJoint.children) {
+        addJointsToArray(childJoint, jointMatrices);
     }
 }
