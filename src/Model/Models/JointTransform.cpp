@@ -8,7 +8,7 @@ Model::JointTransform Model::JointTransform::interpolate(const Model::JointTrans
                                                          const Model::JointTransform &second,
                                                          float progression) {
     auto pos = glm::mix(first.position, second.position, progression);
-    auto rot = glm::slerp(first.rotation, first.rotation, progression);
+    auto rot = glm::slerp(first.rotation, second.rotation, progression);
     return JointTransform(pos, rot);
 }
 glm::mat4 Model::JointTransform::getLocalTransform() {

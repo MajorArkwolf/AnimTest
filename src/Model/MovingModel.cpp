@@ -23,15 +23,9 @@ void Model::MovingModel::Draw(glm::mat4 projection, glm::mat4 view) {
 }
 Model::MovingModel::MovingModel() {
     ourShader = std::make_unique<Shader>(Shader("res/shader/vertshader.vs", "res/shader/fragshader.fs"));
-    positions.emplace_back(500, 0, 10);
-    positions.emplace_back(10, 0, 10);
-    positions.emplace_back(10, 0, 500);
-    positions.emplace_back(250, 0, 250);
-    positions.emplace_back(500, 0, 500);
-    positions.emplace_back(250, 0, 250);
-    SetRotation(position, positions[going]);
     //modelID = ModelManager::GetModelID("res/model/Cyl_Anim.fbx");
-    modelID = ModelManager::GetModelID("res/model/model.dae");
+    //modelID = ModelManager::GetModelID("res/model/model.dae");
+    modelID = ModelManager::GetModelID("res/model/Cyl_Anim.fbx");
     auto &model = ModelManager::GetModel(modelID);
     anim = std::make_shared<Controller::Animator>();
     anim->animatedModel = &model;
