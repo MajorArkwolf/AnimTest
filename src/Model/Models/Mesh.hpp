@@ -9,6 +9,7 @@
 #include "Model/Models/DataTypes.hpp"
 #include "View/Renderer/Shader.hpp"
 #include "View/Renderer/DrawStruct.hpp"
+#include "Model/Models/Bone.hpp"
 
 class Mesh {
   public:
@@ -20,6 +21,8 @@ class Mesh {
     std::vector<TextureB> textures = {};
     /// Index buffer location.
     unsigned int VAO = {};
+
+    std::vector<BoneWeights> boneWeights;
     /**
      * Constructs a mesh object.
      * @param newVertices vertices used in the mesh.
@@ -36,6 +39,10 @@ class Mesh {
     void Draw(Shader& shader);
 
     void AddBoneData(unsigned int VectorID, unsigned int BoneID, float Weight);
+
+    void MeshToGPU();
+
+    void LoadBoneWeights();
 
   private:
     /// Buffer ID's.

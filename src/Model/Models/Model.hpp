@@ -10,6 +10,9 @@
 
 #include "Mesh.hpp"
 #include "View/Renderer/Shader.hpp"
+#include "Model/Models/Bone.hpp"
+#include "Model/Models/Animation.hpp"
+
 namespace Model {
     class Model {
       public:
@@ -21,8 +24,10 @@ namespace Model {
         std::string directory = {};
         /// Does the model need gamma correction.
         bool gammaCorrection = {};
-        std::vector<BoneInfo> boneInfo = {};
         std::map<std::string, unsigned int> boneMapping = {};
+        std::vector<Animation> animations;
+        std::vector<Bone> bones;
+        std::unordered_map<std::string, unsigned int> boneName2boneId;
         glm::mat4 globalInverseTransform = {};
         int numBones = 0;
 
@@ -69,5 +74,10 @@ namespace Model {
                                                   const std::string& typeName);
 
         void LoadBones(unsigned int MeshIndex, const aiMesh *pMesh);
+        void LoadBonesandJoints(const aiScene *scene);
+        unsigned int getBoneId(const aiNode *node);
+      public:
+        std::vector<glm::mat4> createFrame(unsigned int animationId, double time, bool loop);
+        aiMatrix4x4 calculateBoneTransformation(unsigned int boneId);
     };
 }

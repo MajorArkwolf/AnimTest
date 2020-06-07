@@ -15,7 +15,7 @@ void Model::MovingModel::Draw(glm::mat4 projection, glm::mat4 view) {
     math_model = glm::translate(math_model, position); // translate it down so it's at the center of the scene
     math_model = glm::scale(math_model, scale);	// it's a bit too big for our scene, so scale it down
     math_model *= glm::toMat4(resultRotation);
-    std::vector<glm::mat4> temp = {};
+    std::vector<glm::mat4> temp = ModelManager::ModelRepo().at(modelID).createFrame(0, 1, true);
     ourShader->setBool("animated", true);
     ourShader->setMat4Array("jointTransforms", temp);
     ourShader->setMat4("model", math_model);
@@ -23,13 +23,6 @@ void Model::MovingModel::Draw(glm::mat4 projection, glm::mat4 view) {
 }
 Model::MovingModel::MovingModel() {
     ourShader = std::make_unique<Shader>(Shader("res/shader/vertshader.vs", "res/shader/fragshader.fs"));
-    positions.emplace_back(500, 0, 10);
-    positions.emplace_back(10, 0, 10);
-    positions.emplace_back(10, 0, 500);
-    positions.emplace_back(250, 0, 250);
-    positions.emplace_back(500, 0, 500);
-    positions.emplace_back(250, 0, 250);
-    SetRotation(position, positions[going]);
     modelID = ModelManager::GetModelID("res/model/model.dae");
 }
 

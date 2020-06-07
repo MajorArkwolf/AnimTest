@@ -11,6 +11,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     Model/Models/Model.cpp
     Model/Models/ModelManager.cpp
         Model/MovingModel.cpp
+        Model/Models/Animation.cpp
+        Model/Models/Bone.cpp
 
     # View
     View/Renderer/Shader.cpp

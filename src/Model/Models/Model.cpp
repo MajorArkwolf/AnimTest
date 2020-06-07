@@ -8,6 +8,35 @@ static inline glm::vec3 vec3_cast(const aiVector3D &v) { return glm::vec3(v.x, v
 static inline glm::vec2 vec2_cast(const aiVector3D &v) { return glm::vec2(v.x, v.y); } // it's aiVector3D because assimp's texture coordinates use that
 static inline glm::quat quat_cast(const aiQuaternion &q) { return glm::quat(q.w, q.x, q.y, q.z); }
 static inline glm::mat4 mat4_cast(const aiMatrix4x4 &m) { return glm::transpose(glm::make_mat4(&m.a1)); }
+static inline aiMatrix4x4 aiMatrix4x4Compose(const aiVector3D &scaling,
+                               const aiQuaternion &rotation,
+                               const aiVector3D &position) {
+    aiMatrix4x4 r;
+
+    aiMatrix3x3 m = rotation.GetMatrix();
+
+    r.a1 = m.a1 * scaling.x;
+    r.a2 = m.a2 * scaling.x;
+    r.a3 = m.a3 * scaling.x;
+    r.a4 = position.x;
+
+    r.b1 = m.b1 * scaling.y;
+    r.b2 = m.b2 * scaling.y;
+    r.b3 = m.b3 * scaling.y;
+    r.b4 = position.y;
+
+    r.c1 = m.c1 * scaling.z;
+    r.c2 = m.c2 * scaling.z;
+    r.c3 = m.c3 * scaling.z;
+    r.c4 = position.z;
+
+    r.d1 = 0.0;
+    r.d2 = 0.0;
+    r.d3 = 0.0;
+    r.d4 = 1.0;
+
+    return r;
+}
 
 Model::Model::Model(char *path, bool gamma = false) : gammaCorrection(gamma) {
     loadModel(path);
@@ -42,6 +71,11 @@ void Model::Model::loadModel(string const &path) {
 
     // process ASSIMP's root node recursively
     processNode(scene->mRootNode, scene);
+    LoadBonesandJoints(scene);
+    for (auto &mesh : meshes) {
+        mesh.LoadBoneWeights();
+        mesh.MeshToGPU();
+    }
 }
 
 void Model::Model::processNode(aiNode *node, const aiScene *scene) {
@@ -51,7 +85,6 @@ void Model::Model::processNode(aiNode *node, const aiScene *scene) {
         // the scene contains all the data, node is just to keep stuff organized (like relations between nodes).
         aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
         meshes.push_back(processMesh(mesh, scene));
-        LoadBones(i, mesh);
     }
     // after we've processed all of the meshes (if any) we then recursively process each of the children nodes
     for (unsigned int i = 0; i < node->mNumChildren; i++) {
@@ -178,27 +211,149 @@ std::vector<TextureB> Model::Model::loadMaterialTextures(aiMaterial *mat, aiText
 
 void Model::Model::LoadBones(unsigned MeshIndex, const aiMesh* pMesh)
 {
-    for (unsigned i = 0 ; i < pMesh->mNumBones; ++i) {
-        unsigned boneIndex = 0;
-        string boneName(pMesh->mBones[i]->mName.data);
+//    for (unsigned i = 0 ; i < pMesh->mNumBones; ++i) {
+//        unsigned boneIndex = 0;
+//        string boneName(pMesh->mBones[i]->mName.data);
+//
+//        if (boneMapping.find(boneName) == boneMapping.end()) {
+//            boneIndex = numBones;
+//            ++numBones;
+//            Bone bi;
+//            bones.push_back(bi);
+//        }
+//        else {
+//            boneIndex = boneMapping[boneName];
+//        }
+//
+//        boneMapping[boneName] = boneIndex;
+//        boneInfo[boneIndex].BoneOffset = mat4_cast(pMesh->mBones[i]->mOffsetMatrix);
+//
+//        for (unsigned j = 0 ; j < pMesh->mBones[i]->mNumWeights; ++j) {
+//            unsigned VertexID = pMesh->mBones[i]->mWeights[j].mVertexId;
+//            float Weight = pMesh->mBones[i]->mWeights[j].mWeight;
+//            meshes.at(MeshIndex).AddBoneData(VertexID, boneIndex, Weight);
+//        }
+//    }
+}
 
-        if (boneMapping.find(boneName) == boneMapping.end()) {
-            boneIndex = numBones;
-            ++numBones;
-            BoneInfo bi;
-            boneInfo.push_back(bi);
+void Model::Model::LoadBonesandJoints(const aiScene *scene) {
+    // Find channels, and the bones used in the channels
+    for (unsigned int ca = 0; ca < scene->mNumAnimations; ++ca) {
+        animations.emplace_back();
+        auto &animation = animations[ca];
+
+        animation.duration       = scene->mAnimations[ca]->mDuration;
+        animation.ticksPerSecond = scene->mAnimations[ca]->mTicksPerSecond;
+
+        animation.channels.resize(scene->mAnimations[ca]->mNumChannels);
+        for (unsigned int cc = 0; cc < scene->mAnimations[ca]->mNumChannels;
+             ++cc) {
+            animation.channels[cc].positions.resize(
+                scene->mAnimations[ca]->mChannels[cc]->mNumPositionKeys);
+            animation.channels[cc].scales.resize(
+                scene->mAnimations[ca]->mChannels[cc]->mNumScalingKeys);
+            animation.channels[cc].rotations.resize(
+                scene->mAnimations[ca]->mChannels[cc]->mNumRotationKeys);
+
+            for (unsigned int cp = 0;
+                 cp < scene->mAnimations[ca]->mChannels[cc]->mNumPositionKeys;
+                 cp++) {
+                animation.channels[cc].positions[cp] =
+                    scene->mAnimations[ca]->mChannels[cc]->mPositionKeys[cp];
+            }
+            for (unsigned int cs = 0;
+                 cs < scene->mAnimations[ca]->mChannels[cc]->mNumScalingKeys;
+                 cs++) {
+                animation.channels[cc].scales[cs] =
+                    scene->mAnimations[ca]->mChannels[cc]->mScalingKeys[cs];
+            }
+            for (unsigned int cr = 0;
+                 cr < scene->mAnimations[ca]->mChannels[cc]->mNumRotationKeys;
+                 cr++) {
+                animation.channels[cc].rotations[cr] =
+                    scene->mAnimations[ca]->mChannels[cc]->mRotationKeys[cr];
+            }
+
+            const aiNode *node = scene->mRootNode->FindNode(
+                scene->mAnimations[ca]->mChannels[cc]->mNodeName);
+            animations[ca].channels[cc].boneId = getBoneId(node);
         }
-        else {
-            boneIndex = boneMapping[boneName];
-        }
+        for (unsigned int cm = 0; cm < scene->mNumMeshes; ++cm) {
+            for (unsigned int cb = 0; cb < scene->mMeshes[cm]->mNumBones; cb++) {
+                const aiNode *node = scene->mRootNode->FindNode(
+                    scene->mMeshes[cm]->mBones[cb]->mName);
+                this->meshes[cm].boneWeights.emplace_back();
+                unsigned int boneId                     = getBoneId(node);
+                this->meshes[cm].boneWeights[cb].boneId = boneId;
+                this->meshes[cm].boneWeights[cb].offsetMatrix =
+                    scene->mMeshes[cm]->mBones[cb]->mOffsetMatrix;
 
-        boneMapping[boneName] = boneIndex;
-        boneInfo[boneIndex].BoneOffset = mat4_cast(pMesh->mBones[i]->mOffsetMatrix);
+                for (unsigned int cw = 0;
+                     cw < scene->mMeshes[cm]->mBones[cb]->mNumWeights; cw++) {
+                    this->meshes[cm].boneWeights[cb].weights.emplace_back(
+                        scene->mMeshes[cm]->mBones[cb]->mWeights[cw]);
+                }
 
-        for (unsigned j = 0 ; j < pMesh->mBones[i]->mNumWeights; ++j) {
-            unsigned VertexID = pMesh->mBones[i]->mWeights[j].mVertexId;
-            float Weight = pMesh->mBones[i]->mWeights[j].mWeight;
-            meshes.at(MeshIndex).AddBoneData(VertexID, boneIndex, Weight);
+                if (!bones[boneId].hasParentBoneId) {
+                    // Populate Bone::parentBoneIds
+                    node = node->mParent;
+                    while (node != scene->mRootNode) {
+                        unsigned int parentBoneId     = getBoneId(node);
+                        bones[boneId].parentBoneId    = parentBoneId;
+                        bones[boneId].hasParentBoneId = true;
+                        boneId                        = parentBoneId;
+
+                        node = node->mParent;
+                    }
+                }
+            }
         }
     }
+}
+// Add bone if it does not yet exist, and return boneId
+unsigned int Model::Model::getBoneId(const aiNode *node) {
+    unsigned int boneId;
+    if (boneName2boneId.count(node->mName.data) == 0) {
+        bones.emplace_back();
+        boneId                            = bones.size() - 1;
+        boneName2boneId[node->mName.data] = boneId;
+
+        bones[boneId].transformation = node->mTransformation;
+    } else {
+        boneId = boneName2boneId[node->mName.data];
+    }
+
+    return boneId;
+}
+
+aiMatrix4x4 Model::Model::calculateBoneTransformation(unsigned int boneId) {
+    aiMatrix4x4 transformation;
+    if (bones[boneId].hasParentBoneId) {
+        calculateBoneTransformation(bones[boneId].parentBoneId);
+    }
+    transformation *= bones[boneId].transformation
+}
+
+std::vector<glm::mat4> Model::Model::createFrame(unsigned int animationId, double time, bool loop = true) {
+    std::vector<aiMatrix4x4> poses(1.0f);
+    std::vector<glm::mat4> poses2(1.0f);
+    poses.resize(50);
+    poses2.resize(50);
+    if (animationId < animations.size()) {
+        for (auto &channel : animations[animationId].channels) {
+            aiVector3D scale =
+                animations[animationId].interpolate(channel.scales, time, loop);
+            aiQuaternion rotation = animations[animationId].interpolate(
+                channel.rotations, time, loop);
+            aiVector3D position = animations[animationId].interpolate(
+                channel.positions, time, loop);
+//            bones[channel.boneId].transformation =
+//                aiMatrix4x4Compose(scale, rotation, position);
+            poses.at(channel.boneId) = aiMatrix4x4Compose(scale, rotation, position);
+        }
+    }
+    for (size_t i = 0; i < 50; ++i) {
+        poses2[i] = mat4_cast(poses[i]);
+    }
+    return poses2;
 }
